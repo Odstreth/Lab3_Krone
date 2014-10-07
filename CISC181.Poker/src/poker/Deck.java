@@ -27,6 +27,15 @@ public class Deck {
 		Collections.shuffle(cards);
 		
 	}
+	
+	public Deck(int numOfJokers){
+		this();
+		for(int i = 0; i < numOfJokers;i++){
+			Card joker = new Card(eSuit.JOKERS, eRank.JOKER);
+			this.cards.add(joker);
+		}
+		Collections.shuffle(cards);
+	}
 
 	public Card drawFromDeck() {
 		// Removes the first card from the deck and return the card

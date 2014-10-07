@@ -16,6 +16,13 @@ public class Hand {
 	private boolean Flush;
 	private boolean Straight;
 	private boolean Ace;
+	
+	
+	private boolean notWild = true;
+	private int numberOfJokers;
+	//Outside of loop so values are preserved throughout recursion
+	private ArrayList<Card> copiedHand;
+	private ArrayList<Hand> jokerHands;
 
 	public Hand(Deck d) {
 		ArrayList<Card> Import = new ArrayList<Card>();
@@ -25,7 +32,13 @@ public class Hand {
 		CardsInHand = Import;
 	}
 	
+	public int getHiHand() {
+		return HiHand;
+	}
 
+	public int getLoHand() {
+		return LoHand;
+	}
 
 	public ArrayList<Card> getCards() {
 		return CardsInHand;
@@ -60,6 +73,66 @@ public class Hand {
 		return h;
 	}	
 	
+	private int numberOfJokers(ArrayList<Card> cards){
+		int numberOfJokers = 0;
+		for (Card card:cards){
+			if (card.getSuit().getSuit() == eSuit.JOKERS.getSuit()){
+				numberOfJokers++;
+			}
+		}
+		return numberOfJokers;
+	}
+	
+	private void noJokerCopy(){
+		for (int j = 0; j< (CardsInHand.size() - 1 );j++){
+			Card copy = new Card(CardsInHand.get(j).getSuit(), CardsInHand.get(j).getRank());
+			copiedHand.add(copy);
+		}
+		//remove the jokers
+		for (int j = 0; j<this.numberOfJokers;j++){
+		copiedHand.remove(j);
+		}
+		
+	}
+	
+	public void jokerRecursion(ArrayList<Card> seededCard){
+		//this doesn't work properly. hard to get a base case.
+		//numberOfJokers corresponds to jokercardvalues because
+		//of the loop logic in the else statement (more than one joker)
+		if (this.numberOfJokers <= 52){
+			for (short i = 0; i <= 3; i++) {
+				eSuit SuitValue = eSuit.values()[i];			
+				for (short j = 0; j <= 12; j++) {
+					//reset the hand, removing the last card we added and starting fresh
+					ArrayList<Card> jokerHand = new ArrayList<Card>();
+					jokerHand.addAll(seededCard);
+					eRank RankValue = eRank.values()[j];				
+					Card NewCard = new Card(SuitValue,RankValue);
+					//add new card to evaluate
+					jokerHand.add(NewCard);
+					//evaluate the hand and add to joker hands
+					jokerHands.add(EvalHand(jokerHand));
+					this.numberOfJokers--;
+					System.out.println(NewCard.getSuit());
+				}
+			}
+		}
+		else{
+			for (short i = 0; i <= 3; i++) {
+				eSuit SuitValue = eSuit.values()[i];			
+				for (short j = 0; j <= 12; j++) {
+					ArrayList<Card> jokerHand = new ArrayList<Card>();
+					jokerHand.addAll(seededCard);
+					eRank RankValue = eRank.values()[j];				
+					Card NewCard = new Card(SuitValue,RankValue);
+					jokerHand.add(NewCard);
+					this.numberOfJokers--;
+					jokerRecursion(jokerHand);
+				}
+			}
+		}
+	}
+	
 	public void EvalHand() {
 		// Evaluates if the hand is a flush and/or straight then figures out
 		// the hand's strength attributes
@@ -67,10 +140,32 @@ public class Hand {
 
 		// Sort the cards!
 		Collections.sort(CardsInHand, Card.CardRank);
-
+		
+		//Account for Jokers
+		
+		//Account for NaturalRoyalFlush by changing a boolean value
+		//Create a copy of the hand without jokers
+		this.numberOfJokers = numberOfJokers(CardsInHand)*52;
+		if (this.numberOfJokers > 0){
+			this.notWild = false;
+			noJokerCopy();
+			jokerRecursion(copiedHand);
+			Collections.sort(jokerHands, Hand.HandRank);
+			//set to hand to best joker hand after all evaluations next because
+			//I didn't want to make everything an else if because i'm lazy
+			//and don't want to screw up any scoring logic
+			
+	
+		}
+		
 		// Ace Evaluation
 		if (CardsInHand.get(eCardNo.FirstCard.getCardNo()).getRank() == eRank.ACE) {
 			Ace = true;
+		}
+		
+		//Five of a Kind Evaluation
+		if (CardsInHand.get(eCardNo.FirstCard.getCardNo()).getRank() == CardsInHand.get(eCardNo.FifthCard.getCardNo()).getRank()){
+			ScoreHand(eHandStrength.FiveOfAKind, CardsInHand.get(eCardNo.FirstCard.getCardNo()).getRank().getRank(), 0, 0);
 		}
 
 		// Flush Evaluation
@@ -115,7 +210,12 @@ public class Hand {
 		}
 
 		// Evaluates the hand type
-		if (Straight == true && Flush == true
+		if (Straight == true && Flush == true && notWild == true
+				&& CardsInHand.get(eCardNo.FifthCard.getCardNo()).getRank() == eRank.TEN && Ace) {
+			ScoreHand(eHandStrength.NaturalRoyalFlush, 0, 0, 0);
+		}
+		//Royal flush with wilds
+		else if (Straight == true && Flush == true && notWild == false
 				&& CardsInHand.get(eCardNo.FifthCard.getCardNo()).getRank() == eRank.TEN && Ace) {
 			ScoreHand(eHandStrength.RoyalFlush, 0, 0, 0);
 		}
@@ -210,6 +310,15 @@ public class Hand {
 		else {
 			ScoreHand(eHandStrength.HighCard, CardsInHand.get(eCardNo.FirstCard.getCardNo()).getRank().getRank(), 0, CardsInHand.get(eCardNo.SecondCard.getCardNo())
 					.getRank().getRank());
+		}
+		if(notWild == false){
+			//Set hand with wilds to strongest hand
+			Hand h = jokerHands.get(0);
+			this.HandStrength = h.getHandStrength();
+			this.HiHand = h.getHiHand();
+			this.LoHand = h.getLoHand();
+			this.Kicker = h.getKicker();
+			
 		}
 	}
 
